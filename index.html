@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chat Público</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Tela de Login -->
+  <div id="login" class="container">
+    <h1>Login Chat Escola</h1>
+    <form onsubmit="login(event)">
+      <input type="text" id="username" placeholder="Usuário" required>
+      <input type="password" id="password" placeholder="Senha" required>
+      <button type="submit">Entrar</button>
+    </form>
+    <p>Use: Escola / Senha1</p>
+  </div>
+
+  <!-- Chat (inicialmente oculto) -->
+  <div id="chat" class="container hidden">
+    <h2>Chat Público</h2>
+    <div id="messages"></div>
+    <form onsubmit="sendMessage(event)">
+      <input type="text" id="messageInput" placeholder="Digite sua mensagem" required>
+      <button type="submit">Enviar</button>
+    </form>
+  </div>
+
+  <script>
+    // Login Simples
+    function login(e) {
+      e.preventDefault();
+      const user = document.getElementById('username').value;
+      const pass = document.getElementById('password').value;
+      
+      if(user === "Escola" && pass === "Senha1") {
+        document.getElementById('login').classList.add('hidden');
+        document.getElementById('chat').classList.remove('hidden');
+        connectToChat();
+      } else {
+        alert("Credenciais incorretas!");
+      }
+    }
+
+    // Conexão com o chat
+    function connectToChat() {
+      // Usaremos Serverless Functions da Vercel
+      const eventSource = new EventSource('/api/chat');
+      
+      eventSource.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        displayMessage(msg);
+      };
+    }
+
+    // Enviar mensagem
+    function sendMessage(e) {
+      e.preventDefault();
+      const input = document.getElementById('messageInput');
+      const message = input.value;
+      input.value = '';
+      
+      fetch('/api/chat', {
+        method: 'POST',
+        body: JSON.stringify({ message })
+      });
+    }
+
+    // Exibir mensagem
+    function displayMessage(msg) {
+      const messagesDiv = document.getElementById('messages');
+      messagesDiv.innerHTML += `<p><strong>${msg.user}:</strong> ${msg.text}</p>`;
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+  </script>
+</body>
+</html>
