@@ -3,12 +3,12 @@
 <head>
   <title>Chat Público</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
-  <!-- Tela de Login -->
   <div id="login" class="container">
     <h1>Login Chat Escola</h1>
-    <form onsubmit="login(event)">
+    <form id="loginForm">
       <input type="text" id="username" placeholder="Usuário" required>
       <input type="password" id="password" placeholder="Senha" required>
       <button type="submit">Entrar</button>
@@ -16,60 +16,79 @@
     <p>Use: Escola / Senha1</p>
   </div>
 
-  <!-- Chat (inicialmente oculto) -->
   <div id="chat" class="container hidden">
-    <h2>Chat Público</h2>
+    <h2>Chat Público <span id="onlineCount">0</span> online</h2>
     <div id="messages"></div>
-    <form onsubmit="sendMessage(event)">
+    <form id="messageForm">
       <input type="text" id="messageInput" placeholder="Digite sua mensagem" required>
       <button type="submit">Enviar</button>
     </form>
   </div>
 
   <script>
-    // Login Simples
-    function login(e) {
+    let socket;
+
+    // Login
+    document.getElementById('loginForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const user = document.getElementById('username').value;
       const pass = document.getElementById('password').value;
       
       if(user === "Escola" && pass === "Senha1") {
-        document.getElementById('login').classList.add('hidden');
-        document.getElementById('chat').classList.remove('hidden');
-        connectToChat();
+        initChat();
       } else {
         alert("Credenciais incorretas!");
       }
-    }
+    });
 
-    // Conexão com o chat
-    function connectToChat() {
-      // Usaremos Serverless Functions da Vercel
-      const eventSource = new EventSource('/api/chat');
+    // Iniciar chat
+    function initChat() {
+      document.getElementById('login').classList.add('hidden');
+      document.getElementById('chat').classList.remove('hidden');
       
-      eventSource.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
+      // Conectar ao Socket.io
+      socket = io();
+
+      // Receber histórico
+      socket.on('message history', (history) => {
+        history.forEach(msg => displayMessage(msg));
+      });
+
+      // Receber novas mensagens
+      socket.on('chat message', (msg) => {
         displayMessage(msg);
-      };
-    }
+      });
 
-    // Enviar mensagem
-    function sendMessage(e) {
-      e.preventDefault();
-      const input = document.getElementById('messageInput');
-      const message = input.value;
-      input.value = '';
-      
-      fetch('/api/chat', {
-        method: 'POST',
-        body: JSON.stringify({ message })
+      // Contador de usuários
+      socket.on('user count', (count) => {
+        document.getElementById('onlineCount').textContent = count;
+      });
+
+      // Enviar mensagem
+      document.getElementById('messageForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const input = document.getElementById('messageInput');
+        const message = input.value.trim();
+        
+        if(message) {
+          socket.emit('chat message', message);
+          input.value = '';
+          input.focus();
+        }
       });
     }
 
     // Exibir mensagem
     function displayMessage(msg) {
       const messagesDiv = document.getElementById('messages');
-      messagesDiv.innerHTML += `<p><strong>${msg.user}:</strong> ${msg.text}</p>`;
+      const messageElement = document.createElement('div');
+      messageElement.className = 'message';
+      messageElement.innerHTML = `
+        <span class="time">[${msg.time}]</span>
+        <strong class="user">${msg.user}:</strong>
+        <span class="text">${msg.text}</span>
+      `;
+      messagesDiv.appendChild(messageElement);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
   </script>
